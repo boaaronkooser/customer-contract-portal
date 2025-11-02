@@ -1,0 +1,329 @@
+### Business Requirements Document (BRD)
+
+Internal Portal for Bank Employees: Customer Contracts and Event Logs
+
+- Version 1.0
+- Date: October 30, 2025
+
+---
+
+### 1. Executive Summary
+
+Build a secure, web-based internal portal for bank employees to manage customer contracts and view event logs. The portal will provide:
+
+- A searchable customer list with contract summaries
+- Detailed contract views with actions to flag, approve, and comment
+- A KPI dashboard for totals and trends
+- Event logs of customer activity such as login and profile changes
+
+Primary goals are to increase operational efficiency, improve auditability, and standardize contract oversight while adhering to banking compliance and security standards.
+
+---
+
+### 2. Objectives and Success Criteria
+
+- Improve contract review throughput by 30% within 3 months of launch
+- Reduce contract approval turnaround time by 25%
+- Achieve 100% audit coverage of contract actions and comments
+- Maintain 99.9% availability and sub‑2s P95 page load time
+- Zero critical security findings in penetration testing pre‑launch
+
+---
+
+### 3. In-Scope
+
+- Employee web portal with authentication and role-based access control
+- Customer master index with contract summaries
+- Contract detail pages with lifecycle actions: flag, approve, comment
+- Event log ingestion and display for defined customer activities
+- Dashboard for customers, contracts, and events
+- Audit trails for all contract actions and comments
+- Basic reporting export to CSV
+
+Out of scope (Phase 1):
+
+- Customer self-service
+- E-signature provider integration
+- Advanced workflow engine and SLA timers
+- Machine learning based risk scoring
+- Mobile native apps
+
+---
+
+### 4. Stakeholders and Roles
+
+- Business Owner: Head of Operations
+- Compliance: Reviews auditability and record retention
+- Information Security: Security controls, threat modeling
+- Engineering: Build and maintain the portal and APIs
+- QA: Test strategy, UAT coordination
+- Support: Tier 1 and Tier 2 employee support
+
+User roles:
+
+- Viewer: Read-only access to customers, contracts, and events
+- Analyst: Can comment and flag contracts
+- Approver: Can approve or reject contracts, and comment
+- Admin: Manage users, roles, configuration, reference data
+
+---
+
+### 5. Primary User Stories
+
+Customer list and summaries:
+
+- As an Analyst, I can search and filter customers by name, ID, status, or risk level to quickly locate records.
+- As a Viewer, I can see a list with key contract summaries including contract type, status, effective date, and last action.
+
+Contract details and actions:
+
+- As an Analyst, I can open a contract detail page to view terms, attachments, status history, and related customers.
+- As an Analyst, I can add a flag to a contract with a category and reason so that approvers are alerted.
+- As an Approver, I can approve or reject a contract with a required comment to document the decision.
+- As an Analyst or Approver, I can add comments that are recorded with timestamp and user for audit.
+
+Dashboard and KPIs:
+
+- As a Viewer, I can see totals of customers, contracts, and events, and daily trend charts.
+- As an Admin, I can configure which KPIs appear on the dashboard.
+
+Event logs:
+
+- As a Viewer, I can view customer activity events such as login, address change, password reset, and profile updates.
+- As an Analyst, I can filter events by customer, type, time range, and channel.
+
+Security and audit:
+
+- As Compliance, I can export an audit trail of all contract actions and comments for a given period.
+- As Admin, I can assign roles to users and review access logs.
+
+---
+
+### 6. Key Features and Requirements
+
+6.1 Customer List
+
+- Search by Customer ID, Name, Email, Phone, and National ID (masked in UI)
+- Filters: Active/Inactive, Risk level, Contract status, Last activity date
+- Columns: Customer ID, Name, Segment, Risk level, Primary contract type, Contract status, Last action, Last activity
+- Pagination and column sorting
+- Row-level click-through to Customer Profile with Contract Summary
+
+6.2 Contract Detail Page
+
+- Header: Contract ID, Type, Status, Effective and Expiration dates, Associated Customer(s)
+- Sections: Terms overview, Pricing or limits, Attachments, Status history, Flags, Comments
+- Actions:
+    - Flag contract: requires category, severity, and reason
+    - Approve or Reject: requires comment, captures timestamp and user
+    - Add Comment: free text with @mentions of internal users
+- Guardrails:
+    - Only Approver role can approve or reject
+    - Required fields enforced with validation
+    - State machine: Draft → Pending Approval → Approved or Rejected; Reopen with justification
+
+6.3 Dashboard
+
+- KPIs: Total customers, Total active contracts, Contracts pending approval, Events in last 24h
+- Visualizations: Line chart of events/day, Bar chart of approvals vs rejections by week
+- Date range controls and segment filters
+- Permission: Visible to all roles, but some widgets admin‑configurable
+
+6.4 Event Logs
+
+- Event types: Login, Logout, Password reset, Address change, Email change, Phone change, Beneficiary change, MFA enrollment, Failed login
+- Event fields: Event ID, Customer ID, Event type, Timestamp, Channel, IP address, User agent, Metadata diff (for change events)
+- UI features: Search, filter by type and time, export CSV, link from event to customer profile
+
+6.5 Comments and Collaboration
+
+- Threaded comments on contracts with timestamps and user identity
+- Mentions of internal users with notifications
+- Editable within 10 minutes; after that, edits require an addendum noting changes
+- Deletions restricted to Admin and recorded in audit log
+
+6.6 Audit and Compliance
+
+- Immutable audit trail for approvals, rejections, flags, and comment lifecycle
+- Record retention: 7 years minimum for audit events
+- Tamper‑evident storage with write-once semantics at the event store layer
+- Export capabilities with digital signature hash for integrity
+
+6.7 Administration
+
+- User management: Assign roles, deactivate users, force password reset
+- Reference data: Manage flag categories and severities
+- Configuration: Dashboard widgets, risk level thresholds, comment edit window
+
+---
+
+### 7. Data Entities and Relationships
+
+7.1 Entities
+
+- Customer
+    - customer_id, name, email, phone, segment, risk_level, status, created_at, updated_at
+- Contract
+    - contract_id, customer_id, type, status, effective_date, expiration_date, terms_ref, attachments_ref, last_action_at, created_by, updated_by
+- ContractFlag
+    - flag_id, contract_id, category, severity, reason, status, created_by, created_at, resolved_by, resolved_at
+- ContractComment
+    - comment_id, contract_id, parent_comment_id, body, mentions[], created_by, created_at, edited_at, edit_note
+- ContractAction
+    - action_id, contract_id, action_type (approve, reject, reopen), action_note, acted_by, acted_at, prior_status, new_status
+- EventLog
+    - event_id, customer_id, type, timestamp, channel, ip, user_agent, metadata_json, correlation_id
+- User
+    - user_id, name, email, role, status, last_login_at
+
+7.2 Relationships
+
+- Customer 1..N Contract
+- Contract 1..N ContractFlag
+- Contract 1..N ContractComment
+- Contract 1..N ContractAction
+- Customer 1..N EventLog
+- User 1..N ContractAction, ContractFlag, ContractComment
+
+7.3 Derived Data and Indexes
+
+- Indexes on customer_id, contract status, event type, timestamp
+- Materialized views for KPIs: counts by day, pending approvals, events last 24h
+
+---
+
+### 8. Permissions and Access Control
+
+- Authentication: SSO via SAML/OIDC, MFA required
+- Authorization: Role-based with row-level checks
+    - Viewer: Read-only
+    - Analyst: Create flags, add comments
+    - Approver: All Analyst permissions plus approve/reject
+    - Admin: User and configuration management
+- Data masking: National ID, partial email and phone masking in UI for non-Admin roles
+- Field-level controls: Action notes visible to all roles; admin notes restricted to Admin
+
+---
+
+### 9. Non-Functional Requirements
+
+- Security: OWASP ASVS L2 compliance, encryption in transit (TLS 1.2+), encryption at rest (AES-256), secrets management via vault, quarterly pentests
+- Performance: P95 page load ≤ 2s, P99 API latency ≤ 500ms for simple reads, pagination defaults 25 rows
+- Availability: 99.9% monthly
+- Scalability: Support 1M customers, 2M contracts, 500M events
+- Observability: Centralized logging, trace IDs across services, alerting on error rates and latency
+- Compliance: Audit retention 7 years, GDPR data subject access and deletion workflows, access logging
+- Accessibility: WCAG 2.1 AA
+- Browser support: Latest Chrome, Edge, Safari, Firefox
+
+---
+
+### 10. Data Quality and Validation
+
+- Contract status transitions enforced by state machine
+- Mandatory fields: contract type, status, effective date for approval
+- Event schema validation on ingestion; reject malformed events with reason logged
+- Duplicate detection on Contract by customer_id + external_reference when provided
+
+---
+
+### 11. Workflows
+
+11.1 Contract Review
+
+1. Analyst opens a contract, reviews terms and history
+2. If issues found, Analyst flags contract with category and severity
+3. Approver reviews and either approves or rejects with required note
+4. System records ContractAction and updates status, notifies stakeholders
+
+11.2 Event Investigation
+
+1. Viewer filters event logs by customer and event type
+2. Opens event detail, reviews metadata (IP, user agent, change diff)
+3. Links to Customer Profile and related contracts for context
+4. Exports CSV if needed for compliance case
+
+---
+
+### 12. Reporting and Exports
+
+- CSV export for customer lists, contracts, and event logs with applied filters
+- Scheduled CSV delivery disabled in Phase 1, manual export only
+- Hash and timestamp appended to audit exports for integrity verification
+
+---
+
+### 13. Integrations and Interfaces
+
+- Identity provider via SAML/OIDC for SSO
+- Event ingestion API endpoint for customer activity logs
+- Optional downstream data warehouse export (Phase 2)
+- Email or internal notification system for mentions and approvals
+
+---
+
+### 14. UI and UX Requirements
+
+- Global search bar for customers and contracts
+- Consistent table components with sticky headers and bulk actions disabled in Phase 1
+- Contract action buttons contextual to status
+- Comment composer with @mention autocomplete
+- Dark mode considered Phase 2
+
+---
+
+### 15. Risks and Mitigations
+
+- Data leakage risk via comments: sanitize and scan attachments; enforce RBAC
+- Performance risk with large event volumes: partitioned storage and indexed queries
+- Approval bottlenecks: add clear queues and KPIs for pending approvals
+- Regulatory changes: configuration-driven reference data for categories and retention
+
+---
+
+### 16. Testing and Acceptance Criteria
+
+- Unit and integration tests ≥ 80% coverage on core services
+- Security testing: SAST, DAST, dependency scanning passing with no criticals
+- UAT scenarios
+    - Approver can approve a pending contract and status changes to Approved with audit record
+    - Analyst can flag a contract and flag appears in list and details
+    - Viewer can filter events by type and export CSV matching on-screen results
+    - Unauthorized actions blocked with informative error messaging
+
+---
+
+### 17. Deployment and Environments
+
+- Environments: Dev, Staging, Production
+- CI/CD with automated tests, vulnerability scans, and change approvals
+- Feature flags for dashboard widgets and comments edit window
+
+---
+
+### 18. Rollout Plan
+
+- Pilot group: Operations and Compliance, 2 weeks
+- Training: 1-hour session and quick reference guide
+- Success metrics monitored weekly for first 6 weeks
+
+---
+
+### 19. Assumptions
+
+- Source of truth for customers and contracts exists and is integrated or bulk-imported
+- Event producers can conform to defined event schema
+- SSO and MFA are already adopted by the bank
+
+---
+
+### 20. Glossary
+
+- Contract: Legal agreement between bank and customer with lifecycle states
+- Flag: Marker indicating an issue or review need, with category and severity
+- Event Log: Immutable record of customer activity
+- Audit Trail: Historical record of actions on contracts and comments
+
+---
+
+If you want, I can turn this into a Notion page with sections and placeholders for your team to fill in specifics like exact flag categories, event schemas, and KPI definitions.
